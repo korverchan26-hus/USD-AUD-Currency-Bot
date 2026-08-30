@@ -36,6 +36,7 @@ from urllib.error import URLError, HTTPError
 BASE_CCY = "AUD"
 QUOTE_CCY = "USD"
 
+MA_REF = 20     # reference-only MA, shown in the email but not used in any signal logic
 MA_SHORT = 50   # fast MA, used only for trend context (golden/death cross)
 MA_LONG = 100   # slow MA, the z-score is measured against this one
 
@@ -137,6 +138,7 @@ def compute_signal(series):
     current_rate = prices[-1]
     current_date = dates[-1]
 
+    ma_ref = sma(prices, MA_REF)
     ma_short = sma(prices, MA_SHORT)
     ma_long = sma(prices, MA_LONG)
     std_long = rolling_stdev(prices, STD_WINDOW)
@@ -153,6 +155,7 @@ def compute_signal(series):
     return {
         "date": current_date,
         "rate": round(current_rate, 5),
+        "ma_ref": round(ma_ref, 5) if ma_ref else None,
         "ma_short": round(ma_short, 5) if ma_short else None,
         "ma_long": round(ma_long, 5) if ma_long else None,
         "std_long": round(std_long, 5) if std_long else None,
@@ -221,6 +224,7 @@ def format_message(signal, forced=False):
         "",
         f"Date: {signal['date']}",
         f"AUD/USD rate: {signal['rate']}",
+        f"20-day MA: {signal['ma_ref']}",
         f"50-day MA: {signal['ma_short']}",
         f"100-day MA: {signal['ma_long']}",
         f"100-day std dev: {signal['std_long']}",
