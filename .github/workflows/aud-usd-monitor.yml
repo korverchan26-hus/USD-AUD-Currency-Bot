@@ -1,0 +1,52 @@
+name: AUD/USD Conversion Signal
+
+on:
+  schedule:
+    # 21:00 UTC = ~07:00/08:00 AEST/AEDT next morning. FX data updates on
+    # weekdays; running daily is fine, weekend runs will just repeat Friday's
+    # close (no new data), and no alert fires unless the tier changed.
+    - cron: "0 21 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force-send status even if unchanged"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+
+jobs:
+  check-signal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run AUD/USD monitor
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+        run: |
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            python aud_usd_monitor.py --force
+          else
+            python aud_usd_monitor.py
+          fi
+
+      - name: Commit updated state.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update AUD/USD signal state [skip ci]"
+          git push
